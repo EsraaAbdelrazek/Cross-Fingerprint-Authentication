@@ -1,0 +1,27 @@
+# ── Dataset (large image files) ──────────────────────────────────────────────
+contact-based_fingerprints/
+contactless_2d_fingerprint_images/
+processed_contactless_2d_fingerprint_images/
+dataset/
+*.zip
+
+# ── Trained models ────────────────────────────────────────────────────────────
+models/
+*.keras
+*.h5
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+fingerprint_env/
+fingerprint_env311/
+venv/
+env/
+.env
+
+# ── Python cache ──────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.ipynb_checkpoints/
+
+# ── macOS ─────────────────────────────────────────────────────────────────────
+.DS_Store

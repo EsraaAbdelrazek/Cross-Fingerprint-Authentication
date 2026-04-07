@@ -1,0 +1,13 @@
+# Experiment: PolyU dataset + VGG16 backbone + Triplet loss head
+# Note: triplet_head is currently a stub — implement before running
+
+experiment:
+  name: polyu_vgg16_triplet
+
+backbone:
+  name: vgg16
+  dense_units: 1024
+  dropout: 0.5
+
+siamese_head:
+  name: triplet

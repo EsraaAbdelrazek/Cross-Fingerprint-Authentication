@@ -1,0 +1,23 @@
+# Experiment: PolyU dataset + ResNet50 backbone + EAD Siamese head
+# Compare against VGG16 baseline
+
+experiment:
+  name: polyu_resnet50_ead
+
+backbone:
+  name: resnet50
+  dense_units: 1024
+  dropout: 0.5
+
+training:
+  stage1:
+    phase_a:
+      epochs: 50
+      lr: 3.0e-4
+    phase_b:
+      epochs: 30
+      lr: 5.0e-5
+      unfreeze_layer: conv5_block3_out   # ResNet50 last residual block output
+
+siamese_head:
+  name: ead

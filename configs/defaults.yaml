@@ -1,0 +1,43 @@
+# Default values for all experiments.
+# Experiment-specific YAMLs only need to override what differs.
+
+experiment:
+  name: default_experiment
+
+dataset:
+  name: polyu
+  source_dir: contact-based_fingerprints/first_session
+  num_subjects: 300
+  img_size: [224, 224]
+  val_split: 0.2
+
+backbone:
+  name: vgg16
+  dense_units: 1024
+  dropout: 0.5
+
+training:
+  stage1:
+    batch_size: 32
+    phase_a:
+      epochs: 50
+      lr: 3.0e-4
+    phase_b:
+      epochs: 30
+      lr: 5.0e-5
+      unfreeze_layer: block5_conv3
+  stage2:
+    batch_size: 32
+    epochs: 50
+    lr: 1.0e-4
+    num_pairs: 6000
+    test_pairs: 2000
+
+siamese_head:
+  name: ead
+  dense_1: 512
+  dense_2: 256
+  dropout: 0.3
+
+output:
+  experiments_root: experiments

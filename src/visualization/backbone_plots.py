@@ -1,10 +1,57 @@
 """
-Stage 1 training history plots (Phase A, Phase B, combined).
+Stage 1 training history plots (Phase A, Phase B, combined, k-fold summary).
 """
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 from src.visualization.plot_styles import STYLE, plot_acc_loss, annotate_best
+
+
+def plot_kfold_summary(fold_results: list, save_path: str) -> None:
+    """
+    Plot per-fold val accuracy bars + combined Phase A/B curves for each fold.
+    """
+    n_folds = len(fold_results)
+    accs    = [r["best_val_acc"] for r in fold_results]
+    mean    = np.mean(accs)
+    std     = np.std(accs)
+
+    fig, axes = plt.subplots(n_folds, 2, figsize=(14, 4 * n_folds))
+    fig.suptitle(f"{n_folds}-Fold CV — Stage 1  |  Mean {mean*100:.1f}% ± {std*100:.1f}%",
+                 fontsize=14, fontweight="bold")
+
+    for i, r in enumerate(fold_results):
+        hist_a = r["hist_a"]
+        hist_b = r["hist_b"]
+        acc    = hist_a["accuracy"]     + hist_b["accuracy"]
+        val    = hist_a["val_accuracy"] + hist_b["val_accuracy"]
+        loss   = hist_a["loss"]         + hist_b["loss"]
+        vloss  = hist_a["val_loss"]     + hist_b["val_loss"]
+        split  = len(hist_a["accuracy"])
+        eps    = range(1, len(acc) + 1)
+
+        ax_acc, ax_loss = axes[i] if n_folds > 1 else axes
+
+        plot_acc_loss(ax_acc, ax_loss, eps, acc, val, loss, vloss,
+                      t_acc=f"Fold {r['fold']} — Accuracy",
+                      t_loss=f"Fold {r['fold']} — Loss",
+                      vline=split, vlabel=f"Phase B (ep {split})")
+
+        ax_acc.axhline(mean, color="#888", linestyle="--", lw=1.2,
+                       label=f"Mean: {mean*100:.1f}%")
+        ax_acc.text(0.98, 0.03,
+                    f"Best: {r['best_val_acc']*100:.1f}%",
+                    transform=ax_acc.transAxes, fontsize=8,
+                    ha="right", va="bottom",
+                    bbox=dict(boxstyle="round", facecolor="white",
+                              edgecolor="#ccc", alpha=0.8))
+        ax_acc.legend(fontsize=8)
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=150, bbox_inches="tight")
+    plt.close()
+    print(f"  Saved → {save_path}")
 
 
 def plot_phase_a(hist_a: dict, save_path: str) -> None:

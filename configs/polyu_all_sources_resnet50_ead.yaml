@@ -1,0 +1,49 @@
+# Experiment: all 4 data sources (contact + contactless, both sessions)
+#             ResNet50 backbone + 5-fold CV + EAD Siamese head
+#
+# Data breakdown:
+#   contact-based  session 1 : 336 subjects × 6 = 2016 images
+#   contact-based  session 2 : 160 subjects × 6 =  960 images
+#   contactless    session 1 : 336 subjects × 6 = 2016 images
+#   contactless    session 2 : 160 subjects × 6 =  960 images
+#   Total                    : 336 subjects,    5952 images
+
+experiment:
+  name: polyu_all_sources_resnet50_ead
+
+dataset:
+  name: polyu
+  num_subjects: 336
+  sources:
+    - type: contact
+      path: contact-based_fingerprints/first_session
+      session: 1
+    - type: contact
+      path: contact-based_fingerprints/second_session
+      session: 2
+    - type: contactless
+      path: contactless_2d_fingerprint_images/first_session
+      session: 1
+    - type: contactless
+      path: contactless_2d_fingerprint_images/second_session
+      session: 2
+
+backbone:
+  name: resnet50
+  dense_units: 1024
+  dropout: 0.5
+
+training:
+  stage1:
+    cross_validation: true
+    n_folds: 5
+    phase_a:
+      epochs: 50
+      lr: 3.0e-4
+    phase_b:
+      epochs: 30
+      lr: 5.0e-5
+      unfreeze_layer: conv5_block3_out
+
+siamese_head:
+  name: ead

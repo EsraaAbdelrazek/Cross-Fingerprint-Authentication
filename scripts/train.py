@@ -21,33 +21,109 @@ from src.data import DATASET_REGISTRY
 from src.data.pair_generator import generate_pairs, split_pairs
 from src.models import get_backbone, get_encoder_layer, get_siamese_head
 from src.models.encoder_utils import extract_encoder, load_encoder
-from src.training import train, train_siamese
+from src.training import train, train_kfold, train_siamese
 from src.evaluation import evaluate, evaluate_siamese
-from src.evaluation.metrics import compute_eer
 from src.visualization import (
-    plot_phase_a, plot_phase_b, plot_stage1_combined,
+    plot_phase_a, plot_phase_b, plot_stage1_combined, plot_kfold_summary,
     plot_siamese, plot_eer, plot_full_pipeline,
 )
 
 
 def run_stage1(cfg: dict, paths: dict):
-    """Run Stage 1: dataset prep + backbone training + encoder extraction."""
-    dataset_cls = DATASET_REGISTRY[cfg["dataset"]["name"]]
-    dataset = dataset_cls(cfg)
+    """Run Stage 1: dataset prep + backbone training + encoder extraction.
 
-    img_size    = tuple(cfg["dataset"]["img_size"])
-    source_dir  = cfg["dataset"]["source_dir"]
+    Supports two modes via config:
+      - Single split : dataset.sources is null  (original behaviour)
+      - Multi-source + k-fold CV : dataset.sources is a list of dicts
+    """
+    dataset_cls  = DATASET_REGISTRY[cfg["dataset"]["name"]]
+    dataset      = dataset_cls(cfg)
+    img_size     = tuple(cfg["dataset"]["img_size"])
     num_subjects = cfg["dataset"]["num_subjects"]
-    organized   = f"dataset/fingerprints_organized"
-    processed   = f"dataset/fingerprints_224"
+    stage1_cfg   = cfg["training"]["stage1"]
+    use_kfold    = stage1_cfg.get("cross_validation", False)
+    sources      = cfg["dataset"].get("sources")          # None → single-source
+    multi_source = sources is not None
 
-    # 1. Prepare data
-    dataset.reorganize(source_dir, organized, num_subjects)
+    # ── 1. Organise & preprocess ────────────────────────────────────────────
+    if multi_source:
+        organized = "dataset/fingerprints_all_sources"
+        processed = "dataset/fingerprints_all_sources_224"
+        dataset.reorganize_multi(sources, organized, num_subjects)
+    else:
+        organized = "dataset/fingerprints_organized"
+        processed = "dataset/fingerprints_224"
+        dataset.reorganize(cfg["dataset"]["source_dir"], organized, num_subjects)
+
     dataset.preprocess(organized, processed, img_size)
+
+    # ── 2. Build backbone factory (called once per fold if using k-fold) ────
+    backbone_name = cfg["backbone"]["name"]
+    backbone_fn   = get_backbone(backbone_name)
+
+    def model_builder():
+        n = len([d for d in Path(processed).iterdir() if d.is_dir()])
+        m = backbone_fn(
+            num_classes=n,
+            dense_units=cfg["backbone"]["dense_units"],
+            dropout=cfg["backbone"]["dropout"],
+            img_size=img_size,
+        )
+        return m
+
+    print("\n" + "=" * 55)
+    print(f"  STAGE 1: {backbone_name.upper()} Training")
+    if multi_source:
+        print(f"  Sources  : {len(sources)} (contact + contactless, both sessions)")
+    if use_kfold:
+        print(f"  Mode     : {stage1_cfg['n_folds']}-fold cross-validation")
+    print("=" * 55)
+
+    # ── 3a. K-fold CV path ──────────────────────────────────────────────────
+    rescale = None if backbone_name == "efficientnet" else 1.0 / 255
+    if use_kfold:
+        n_folds = stage1_cfg.get("n_folds", 5)
+        folds   = dataset.create_kfold_generators(
+            processed, img_size, stage1_cfg["batch_size"], n_folds,
+            rescale=rescale,
+        )
+        fold_results, best_model = train_kfold(model_builder, folds, cfg, paths)
+
+        # Save per-fold histories
+        for r in fold_results:
+            fold_tag = f"fold{r['fold']}"
+            save_history(r["hist_a"], f"{paths['histories']}/hist_a_{fold_tag}.json")
+            save_history(r["hist_b"], f"{paths['histories']}/hist_b_{fold_tag}.json")
+
+        # Save best model & extract encoder
+        final_path = f"{paths['checkpoints']}/stage1_final.keras"
+        best_model.save(final_path)
+        print(f"  Best fold model saved → {final_path}")
+
+        encoder_layer = get_encoder_layer(backbone_name)
+        encoder_path  = f"{paths['checkpoints']}/encoder.keras"
+        extract_encoder(best_model, encoder_path, encoder_layer)
+
+        # Summary stats
+        accs = [r["best_val_acc"] for r in fold_results]
+        mean_acc = np.mean(accs)
+        print(f"  CV mean val accuracy: {mean_acc * 100:.2f}%")
+
+        # Plots
+        plot_kfold_summary(fold_results, f"{paths['plots']}/kfold_summary.png")
+
+        # Return best fold histories for pipeline plot
+        best_r = max(fold_results, key=lambda x: x["best_val_acc"])
+        return best_r["hist_a"], best_r["hist_b"]
+
+    # ── 3b. Single-split path (original behaviour) ──────────────────────────
+    # EfficientNet has a built-in rescaling layer — do not apply rescale=1/255
+    rescale = None if backbone_name == "efficientnet" else 1.0 / 255
     train_gen, val_gen = dataset.create_generators(
         processed, img_size,
-        cfg["training"]["stage1"]["batch_size"],
+        stage1_cfg["batch_size"],
         cfg["dataset"]["val_split"],
+        rescale=rescale,
     )
 
     num_classes = train_gen.num_classes
@@ -55,9 +131,6 @@ def run_stage1(cfg: dict, paths: dict):
     print(f"  Training samples    : {train_gen.samples}")
     print(f"  Validation samples  : {val_gen.samples}")
 
-    # 2. Build backbone
-    backbone_name = cfg["backbone"]["name"]
-    backbone_fn   = get_backbone(backbone_name)
     model = backbone_fn(
         num_classes=num_classes,
         dense_units=cfg["backbone"]["dense_units"],
@@ -66,30 +139,21 @@ def run_stage1(cfg: dict, paths: dict):
     )
     model.summary()
 
-    # 3. Train (Phase A + Phase B)
-    print("\n" + "=" * 55)
-    print(f"  STAGE 1: {backbone_name.upper()} Training")
-    print("=" * 55)
     hist_a, hist_b = train(model, train_gen, val_gen, cfg, paths)
 
-    # 4. Save histories
     save_history(hist_a, f"{paths['histories']}/hist_a.json")
     save_history(hist_b, f"{paths['histories']}/hist_b.json")
 
-    # 5. Save final model
     final_path = f"{paths['checkpoints']}/stage1_final.keras"
     model.save(final_path)
     print(f"  Final model saved → {final_path}")
 
-    # 6. Extract encoder
     encoder_layer = get_encoder_layer(backbone_name)
     encoder_path  = f"{paths['checkpoints']}/encoder.keras"
     extract_encoder(model, encoder_path, encoder_layer)
 
-    # 7. Evaluate
     evaluate(model, val_gen)
 
-    # 8. Save plots
     plot_phase_a(hist_a, f"{paths['plots']}/phase_a_history.png")
     plot_phase_b(hist_b, f"{paths['plots']}/phase_b_history.png",
                  phase_a_best=max(hist_a["val_accuracy"]))

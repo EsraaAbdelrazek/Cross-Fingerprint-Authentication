@@ -7,6 +7,7 @@ experiment:
 dataset:
   name: polyu
   source_dir: contact-based_fingerprints/first_session
+  sources: null          # if set (list), overrides source_dir and enables multi-source
   num_subjects: 300
   img_size: [224, 224]
   val_split: 0.2
@@ -19,6 +20,8 @@ backbone:
 training:
   stage1:
     batch_size: 32
+    cross_validation: false  # if true, run n_folds-fold CV instead of single split
+    n_folds: 5
     phase_a:
       epochs: 50
       lr: 3.0e-4

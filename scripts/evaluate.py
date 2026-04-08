@@ -50,10 +50,13 @@ def main():
         dataset_cls = DATASET_REGISTRY[cfg["dataset"]["name"]]
         dataset = dataset_cls(cfg)
         img_size = tuple(cfg["dataset"]["img_size"])
+        backbone_name = cfg["backbone"]["name"]
+        rescale = None if backbone_name == "efficientnet" else 1.0 / 255
         _, val_gen = dataset.create_generators(
             "dataset/fingerprints_224", img_size,
             cfg["training"]["stage1"]["batch_size"],
             cfg["dataset"]["val_split"],
+            rescale=rescale,
         )
         evaluate(model, val_gen)
 

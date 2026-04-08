@@ -1,0 +1,18 @@
+# Experiment: PolyU dataset + EfficientNetB0 backbone + EAD Siamese head
+# Note: EfficientNet has built-in rescaling — rescale=1/255 is skipped automatically.
+
+experiment:
+  name: polyu_efficientnet_ead
+
+backbone:
+  name: efficientnet
+  dense_units: 1024
+  dropout: 0.5
+
+training:
+  stage1:
+    phase_b:
+      unfreeze_layer: top_conv   # EfficientNet final projection conv
+
+siamese_head:
+  name: ead

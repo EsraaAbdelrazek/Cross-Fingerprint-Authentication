@@ -1,0 +1,58 @@
+# Experiment: VGG16 + ALL 4 sources (both sessions, contact + contactless) + EAD
+#
+# Data breakdown:
+#   contact-based  session 1 : 336 subjects × 6 = 2016 images
+#   contact-based  session 2 : 160 subjects × 6 =  960 images
+#   contactless    session 1 : 336 subjects × 6 = 2016 images
+#   contactless    session 2 : 160 subjects × 6 =  960 images
+#   Total                    : 336 subjects,    5952 images  (~4x more than single-source)
+#
+# Improvements over polyu_vgg16_ead:
+#   - All 4 data sources instead of contact session 1 only
+#   - 336 subjects instead of 300
+#   - Phase B unfreezes block5_conv1 onwards (all of block5) for deeper fine-tuning
+#   - Phase B lr 3e-5 (slightly lower — more layers unfrozen, need more careful tuning)
+#   - More Stage 2 pairs to match larger dataset
+
+experiment:
+  name: polyu_vgg16_all_sources_ead
+
+dataset:
+  name: polyu
+  num_subjects: 336
+  sources:
+    - type: contact
+      path: contact-based_fingerprints/first_session
+      session: 1
+    - type: contact
+      path: contact-based_fingerprints/second_session
+      session: 2
+    - type: contactless
+      path: contactless_2d_fingerprint_images/first_session
+      session: 1
+    - type: contactless
+      path: contactless_2d_fingerprint_images/second_session
+      session: 2
+
+backbone:
+  name: vgg16
+  dense_units: 1024
+  dropout: 0.5
+
+training:
+  stage1:
+    phase_a:
+      epochs: 50
+      lr: 3.0e-4
+    phase_b:
+      epochs: 40
+      lr: 3.0e-5
+      unfreeze_layer: block5_conv1
+
+  stage2:
+    epochs: 50
+    num_pairs: 10000
+    test_pairs: 3000
+
+siamese_head:
+  name: ead

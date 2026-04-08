@@ -55,14 +55,24 @@ def train(model: Model, train_gen, val_gen, cfg: dict,
         verbose=1,
     ).history
 
-    # ── Phase B: unfreeze one backbone layer ─────────────────────────────────
+    # ── Phase B: unfreeze backbone from a given layer onwards ───────────────
     print("\n" + "═" * 55)
-    print(f"  PHASE B — Unfreeze {unfreeze_layer}, fine-tune")
+    print(f"  PHASE B — Unfreeze from {unfreeze_layer} onwards, fine-tune")
     print("═" * 55)
+
+    backbone_layer_list = [l.name for l in model.layers if l.name in backbone_layers]
+    try:
+        unfreeze_idx = backbone_layer_list.index(unfreeze_layer)
+    except ValueError:
+        raise ValueError(
+            f"unfreeze_layer '{unfreeze_layer}' not found in backbone. "
+            f"Available backbone layers: {backbone_layer_list}"
+        )
+    layers_to_unfreeze = set(backbone_layer_list[unfreeze_idx:])
 
     for layer in model.layers:
         if layer.name in backbone_layers:
-            layer.trainable = (layer.name == unfreeze_layer)
+            layer.trainable = layer.name in layers_to_unfreeze
 
     model.compile(
         optimizer=Adam(float(phase_b_cfg["lr"])),

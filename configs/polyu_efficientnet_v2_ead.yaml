@@ -6,7 +6,7 @@
 #   - Phase A epochs 50 → 60  (plateaued at ep 47, give more room)
 #   - Phase B lr 5e-5 → 1e-5  (EfficientNet BN layers sensitive; v1 degraded after ep 1)
 #   - Phase B epochs 30 → 40  (early stopped at ep 9 in v1, needs more room to recover)
-#   - unfreeze_layer top_conv → block6a_expand_conv  (unfreeze last 2 MBConv blocks + top_conv)
+#   - unfreeze_layer top_conv → block7a_project_conv  (only last MBConv block + top_conv)
 #   - stage2 num_pairs 6000 → 10000  (compact encoder benefits from more pair diversity)
 
 experiment:
@@ -25,7 +25,7 @@ training:
     phase_b:
       epochs: 40
       lr: 1.0e-5
-      unfreeze_layer: block6a_expand_conv
+      unfreeze_layer: block7a_project_conv
 
   stage2:
     epochs: 50

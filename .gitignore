@@ -9,7 +9,7 @@ dataset/
 *.zip
 
 # ── Trained models ────────────────────────────────────────────────────────────
-models/
+/models/
 *.keras
 *.h5
 

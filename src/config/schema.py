@@ -89,7 +89,7 @@ REQUIRED_FIELDS = {
     "dataset": ["name", "source_dir"],
 }
 
-VALID_BACKBONES   = {"vgg16", "resnet50", "mobilenetv2", "efficientnet", "vit"}
+VALID_BACKBONES   = {"vgg16", "resnet50", "mobilenetv2", "efficientnet", "efficientnet_b1", "vit"}
 VALID_DATASETS    = {"polyu"}
 VALID_SIAMESE_HEADS = {"ead", "triplet"}
 

@@ -1,0 +1,42 @@
+# Experiment: PolyU dataset + EfficientNetB1 backbone + EAD Siamese head
+#
+# Improvements over EfficientNetB0 (polyu_efficientnet_ead):
+#   - EfficientNetB1 (7.8M params) vs B0 (5.3M) — more capacity for 300 classes
+#   - Image size 260×260 vs 224×224 — preserves finer ridge detail
+#   - dropout 0.3 (B0 experiments showed underfitting at 0.5)
+#   - Phase B lr 1e-5 (B0 confirmed EfficientNet BN layers are very sensitive)
+#   - unfreeze_layer: top_bn (only top conv + BN — conservative, avoids catastrophic forgetting)
+#   - label_smoothing 0.1 — prevents over-confidence with only 5 images/subject
+#   - stage2 num_pairs 10000 for more pair diversity
+
+experiment:
+  name: polyu_efficientnet_b1_ead
+
+dataset:
+  name: polyu
+  source_dir: contact-based_fingerprints/first_session
+  num_subjects: 300
+  img_size: [260, 260]
+
+backbone:
+  name: efficientnet_b1
+  dense_units: 1024
+  dropout: 0.3
+
+training:
+  stage1:
+    phase_a:
+      epochs: 60
+      lr: 3.0e-4
+    phase_b:
+      epochs: 40
+      lr: 1.0e-5
+      unfreeze_layer: top_bn
+
+  stage2:
+    epochs: 50
+    num_pairs: 10000
+    test_pairs: 3000
+
+siamese_head:
+  name: ead

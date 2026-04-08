@@ -1,13 +1,5 @@
 # Experiment: PolyU dataset + EfficientNetB0 backbone + EAD Siamese head
 # Note: EfficientNet has built-in rescaling — rescale=1/255 is skipped automatically.
-#
-# Changes from v1:
-#   - dropout 0.5 → 0.3  (val > train in Phase A = underfitting)
-#   - Phase A epochs 50 → 60  (plateaued at ep 47, give more room)
-#   - Phase B lr 5e-5 → 1e-5  (EfficientNet BN layers are sensitive; v1 degraded after ep 1)
-#   - Phase B epochs 30 → 40  (early stopped at ep 9 in v1, needs more room to recover)
-#   - unfreeze_layer top_conv → block6a_expand_conv  (unfreeze last 2 MBConv blocks + top_conv)
-#   - stage2 num_pairs 6000 → 10000  (compact encoder benefits from more pair diversity)
 
 experiment:
   name: polyu_efficientnet_ead
@@ -15,22 +7,12 @@ experiment:
 backbone:
   name: efficientnet
   dense_units: 1024
-  dropout: 0.3
+  dropout: 0.5
 
 training:
   stage1:
-    phase_a:
-      epochs: 60
-      lr: 3.0e-4
     phase_b:
-      epochs: 40
-      lr: 1.0e-5
-      unfreeze_layer: block6a_expand_conv
-
-  stage2:
-    epochs: 50
-    num_pairs: 10000
-    test_pairs: 3000
+      unfreeze_layer: top_conv
 
 siamese_head:
   name: ead

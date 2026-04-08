@@ -80,7 +80,7 @@ def run_stage1(cfg: dict, paths: dict):
     print("=" * 55)
 
     # ── 3a. K-fold CV path ──────────────────────────────────────────────────
-    rescale = None if backbone_name == "efficientnet" else 1.0 / 255
+    rescale = None if backbone_name.startswith("efficientnet") else 1.0 / 255
     if use_kfold:
         n_folds = stage1_cfg.get("n_folds", 5)
         folds   = dataset.create_kfold_generators(
@@ -117,8 +117,8 @@ def run_stage1(cfg: dict, paths: dict):
         return best_r["hist_a"], best_r["hist_b"]
 
     # ── 3b. Single-split path (original behaviour) ──────────────────────────
-    # EfficientNet has a built-in rescaling layer — do not apply rescale=1/255
-    rescale = None if backbone_name == "efficientnet" else 1.0 / 255
+    # EfficientNet variants have built-in rescaling — do not apply rescale=1/255
+    rescale = None if backbone_name.startswith("efficientnet") else 1.0 / 255
     train_gen, val_gen = dataset.create_generators(
         processed, img_size,
         stage1_cfg["batch_size"],
